@@ -14,10 +14,32 @@ const SELECT_CARD =
   expansions ( id, name, code )
 `;
 
+const SELECT_CARD_SET =
+  `
+  id,
+  game_id,
+  expansion_id,
+  name,
+  number,
+  rarity,
+  variant_name,
+  image_small,
+  image_medium,
+  expansions!inner ( id, name, code )
+`;
+
+/** Escape `%` / `_` for PostgreSQL ILIKE patterns in PostgREST filter strings. */
+function ilikePattern(raw) {
+  const s = String(raw).trim();
+  const escaped = s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+  return `%${escaped}%`;
+}
+
 /**
- * Paginated catalog browse with optional full-text search on search_vector.
+ * Paginated catalog browse with optional text filter.
  * @param {Object} p
- * @param {string} [p.query] - full-text query (empty = no text filter)
+ * @param {string} [p.query] - search text (empty = no text filter)
+ * @param {'card'|'set'} [p.searchKind] - card: name/rarity/number/variant; set: expansion name/code
  * @param {string|null} [p.gameId]
  * @param {string|null} [p.expansionId]
  * @param {string|null} [p.rarity] - exact match
@@ -28,6 +50,7 @@ const SELECT_CARD =
 export async function searchCatalogCards(p) {
   const {
     query = '',
+    searchKind = 'card',
     gameId = null,
     expansionId = null,
     rarity = null,
@@ -39,10 +62,14 @@ export async function searchCatalogCards(p) {
   const pageSize = Math.min(Math.max(1, limit), 100);
   const from = offset;
   const to = offset + pageSize - 1;
+  const kind = searchKind === 'set' ? 'set' : 'card';
+
+  const trimmed = query.trim();
+  const pat = trimmed ? ilikePattern(trimmed) : '';
 
   let q = supabase
     .from('cards_v2')
-    .select(SELECT_CARD, { count: 'exact' })
+    .select(kind === 'set' ? SELECT_CARD_SET : SELECT_CARD, { count: 'exact' })
     .order('name', { ascending: true })
     .range(from, to);
 
@@ -51,12 +78,16 @@ export async function searchCatalogCards(p) {
   if (rarity?.trim()) q = q.ilike('rarity', `%${rarity.trim()}%`);
   if (baseCardsOnly) q = q.not('id', 'like', '%::%');
 
-  const trimmed = query.trim();
   if (trimmed) {
-    q = q.textSearch('search_vector', trimmed, {
-      type: 'websearch',
-      config: 'english',
-    });
+    if (kind === 'set') {
+      q = q.or(`name.ilike.${pat},code.ilike.${pat}`, { foreignTable: 'expansions' });
+    } else {
+      const orParts = [`name.ilike.${pat}`, `rarity.ilike.${pat}`, `variant_name.ilike.${pat}`];
+      if (/^\d+$/.test(trimmed)) {
+        orParts.push(`number.eq.${trimmed}`);
+      }
+      q = q.or(orParts.join(','));
+    }
   }
 
   const { data, error, count } = await q;

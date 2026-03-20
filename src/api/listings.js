@@ -44,16 +44,21 @@ function mapBrowseRow(row, gameDisplayNames = {}) {
 export async function getBrowseListings(params = {}) {
   const {
     query = null,
+    queryScope = 'card',
     graded = null,
     minPrice = null,
     maxPrice = null,
     gameId = null,
+    expansionId = null,
     gameDisplayNames = {},
     limit = 50,
     offset = 0,
   } = params;
 
   const pageLimit = Math.min(Math.max(1, limit), 200);
+  const scope = queryScope === 'set' ? 'set' : 'card';
+  const exp =
+    expansionId != null && String(expansionId).trim() !== '' ? String(expansionId).trim() : null;
 
   const { data, error } = await supabase.rpc('get_combined_browse_listings', {
     p_query: query || null,
@@ -63,6 +68,8 @@ export async function getBrowseListings(params = {}) {
     p_game_id: gameId || null,
     p_limit: pageLimit,
     p_offset: offset,
+    p_query_scope: scope,
+    p_expansion_id: exp,
   });
 
   if (error) {

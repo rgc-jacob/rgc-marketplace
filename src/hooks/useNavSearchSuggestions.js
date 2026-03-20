@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { searchCatalogCards } from '../api/catalog';
-import { CATEGORIES } from '../data/games';
 import { normalizeRgcSuggestResponse, rgcSearchSuggest } from '../lib/rgcBackend';
 
 const CACHE_TTL_MS = 90 * 1000;
@@ -30,33 +29,17 @@ function setCache(key, value) {
 }
 
 /**
- * Debounced query → local games/categories + catalog FTS + optional RGC suggest API.
+ * Debounced query → catalog (card vs set) + optional RGC suggest API.
+ * Games/categories live in the main nav, not here.
  * @param {string} debouncedQuery
- * @param {Array<{ id: string, name: string, slug: string }>} games
+ * @param {'card'|'set'} searchKind
  */
-export function useNavSearchSuggestions(debouncedQuery, games) {
+export function useNavSearchSuggestions(debouncedQuery, searchKind) {
   const [apiStrings, setApiStrings] = useState([]);
   const [catalogHits, setCatalogHits] = useState([]);
   const [loadingRemote, setLoadingRemote] = useState(false);
 
-  const localGames = useMemo(() => {
-    const q = norm(debouncedQuery);
-    if (q.length < 1) return [];
-    return (games || [])
-      .filter((g) => norm(g.name).includes(q) || norm(g.slug).includes(q) || norm(g.id).includes(q))
-      .slice(0, 5);
-  }, [debouncedQuery, games]);
-
-  const localCategories = useMemo(() => {
-    const q = norm(debouncedQuery);
-    if (q.length < 1) return [];
-    return CATEGORIES.filter(
-      (c) =>
-        norm(c.name).includes(q) ||
-        norm(c.slug).includes(q) ||
-        norm(c.description).includes(q),
-    ).slice(0, 5);
-  }, [debouncedQuery]);
+  const kind = searchKind === 'set' ? 'set' : 'card';
 
   useEffect(() => {
     const q = debouncedQuery.trim();
@@ -71,7 +54,7 @@ export function useNavSearchSuggestions(debouncedQuery, games) {
 
     const ac = new AbortController();
     setLoadingRemote(true);
-    const k = norm(q);
+    const k = `${norm(q)}|${kind}`;
     const cached = getCache(k);
     if (cached) {
       setApiStrings(cached.apiStrings || []);
@@ -85,6 +68,7 @@ export function useNavSearchSuggestions(debouncedQuery, games) {
     const catalogP = catalogEligible
       ? searchCatalogCards({
           query: q,
+          searchKind: kind,
           limit: 3,
           offset: 0,
           baseCardsOnly: true,
@@ -100,25 +84,26 @@ export function useNavSearchSuggestions(debouncedQuery, games) {
           }
         });
 
-    const suggestP = suggestEligible
-      ? rgcSearchSuggest({ search_prefix: q, result_limit: 6 }, { signal: ac.signal })
-          .then(({ data, error }) => {
-            if (ac.signal.aborted) return;
-            nextApiStrings = error ? [] : normalizeRgcSuggestResponse(data);
-            setApiStrings(nextApiStrings);
-          })
-          .catch(() => {
+    const suggestP =
+      kind === 'card' && suggestEligible
+        ? rgcSearchSuggest({ search_prefix: q, result_limit: 6 }, { signal: ac.signal })
+            .then(({ data, error }) => {
+              if (ac.signal.aborted) return;
+              nextApiStrings = error ? [] : normalizeRgcSuggestResponse(data);
+              setApiStrings(nextApiStrings);
+            })
+            .catch(() => {
+              if (!ac.signal.aborted) {
+                nextApiStrings = [];
+                setApiStrings([]);
+              }
+            })
+        : Promise.resolve().then(() => {
             if (!ac.signal.aborted) {
               nextApiStrings = [];
               setApiStrings([]);
             }
-          })
-      : Promise.resolve().then(() => {
-          if (!ac.signal.aborted) {
-            nextApiStrings = [];
-            setApiStrings([]);
-          }
-        });
+          });
 
     Promise.all([catalogP, suggestP]).finally(() => {
       if (!ac.signal.aborted) {
@@ -131,18 +116,11 @@ export function useNavSearchSuggestions(debouncedQuery, games) {
     });
 
     return () => ac.abort();
-  }, [debouncedQuery]);
-
-  const apiStringsDeduped = useMemo(() => {
-    const names = new Set((catalogHits || []).map((c) => norm(c.name)));
-    return apiStrings.filter((s) => !names.has(norm(s)));
-  }, [apiStrings, catalogHits]);
+  }, [debouncedQuery, kind]);
 
   return {
-    localGames,
-    localCategories,
     catalogHits,
-    apiStrings: apiStringsDeduped,
+    apiStrings,
     loadingRemote,
   };
 }

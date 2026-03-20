@@ -5,6 +5,7 @@ import ListingCard from '../components/ListingCard';
 import { useGames, gamesToDisplayNames } from '../hooks/useGames';
 import { useDebounced } from '../hooks/useDebounced';
 import { getMarketplaceListings } from '../api/listings';
+import { getExpansionsForGame } from '../api/catalog';
 import { CATEGORIES } from '../data/games';
 
 const SORT_OPTIONS = [
@@ -28,7 +29,9 @@ export default function Browse() {
 
   const q = searchParams.get('q') ?? '';
   const debouncedQ = useDebounced(q, 400);
+  const queryScope = searchParams.get('q_scope') === 'set' ? 'set' : 'card';
   const game = searchParams.get('game') ?? '';
+  const expansion = searchParams.get('expansion') ?? '';
   const category = searchParams.get('category') ?? '';
   const graded = searchParams.get('graded') ?? '';
   const priceMin = numOrEmpty(searchParams.get('price_min'));
@@ -40,14 +43,41 @@ export default function Browse() {
   const filters = useMemo(
     () => ({
       game,
+      expansion,
       category,
       condition,
       graded,
       priceMin,
       priceMax,
     }),
-    [game, category, condition, graded, priceMin, priceMax],
+    [game, expansion, category, condition, graded, priceMin, priceMax],
   );
+
+  const [expansions, setExpansions] = useState([]);
+  const [expansionsLoading, setExpansionsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!game) {
+      setExpansions([]);
+      setExpansionsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setExpansionsLoading(true);
+    getExpansionsForGame(game)
+      .then((rows) => {
+        if (!cancelled) setExpansions(rows || []);
+      })
+      .catch(() => {
+        if (!cancelled) setExpansions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setExpansionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [game]);
 
   const onFilterChange = useCallback(
     (key, value) => {
@@ -61,6 +91,9 @@ export default function Browse() {
         return;
       }
       const next = new URLSearchParams(searchParams);
+      if (key === 'game') {
+        next.delete('expansion');
+      }
       const urlKey = key === 'priceMin' ? 'price_min' : key === 'priceMax' ? 'price_max' : key;
       if (value === '' || value === null || value === undefined) {
         next.delete(urlKey);
@@ -97,12 +130,14 @@ export default function Browse() {
     const pGraded = filters.graded === 'yes' ? true : filters.graded === 'no' ? false : null;
     getMarketplaceListings({
       query: debouncedQ.trim() || null,
+      queryScope,
       graded: pGraded,
       minPrice: filters.priceMin !== '' ? Number(filters.priceMin) : null,
       maxPrice: filters.priceMax !== '' ? Number(filters.priceMax) : null,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
       gameId: filters.game || null,
+      expansionId: filters.expansion || null,
       gameDisplayNames: gameNames,
     })
       .then((res) => {
@@ -118,7 +153,17 @@ export default function Browse() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedQ, filters.game, filters.graded, filters.priceMin, filters.priceMax, gameNames, page]);
+  }, [
+    debouncedQ,
+    queryScope,
+    filters.game,
+    filters.expansion,
+    filters.graded,
+    filters.priceMin,
+    filters.priceMax,
+    gameNames,
+    page,
+  ]);
 
   const filtered = useMemo(() => {
     let list = [...listings];
@@ -147,17 +192,27 @@ export default function Browse() {
   }, [listings, filters.category, filters.condition, sort, q]);
 
   const gameLabel = useMemo(() => games.find((g) => g.slug === game || g.id === game)?.name, [games, game]);
+  const expansionLabel = useMemo(() => {
+    if (!expansion) return null;
+    return expansions.find((e) => e.id === expansion)?.name ?? null;
+  }, [expansion, expansions]);
   const categoryLabel = useMemo(
     () => CATEGORIES.find((c) => c.slug === category)?.name,
     [category],
   );
   const hasUrlFilters =
-    Boolean(game || category || graded || priceMin !== '' || priceMax !== '');
+    Boolean(game || expansion || category || graded || priceMin !== '' || priceMax !== '');
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-      <div className="flex gap-8">
-        <FilterSidebar filters={filters} onFilterChange={onFilterChange} games={games} />
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+        <FilterSidebar
+          filters={filters}
+          onFilterChange={onFilterChange}
+          games={games}
+          expansions={expansions}
+          expansionsLoading={expansionsLoading}
+        />
 
         <div className="flex-1 min-w-0">
           {listError && (
@@ -170,22 +225,32 @@ export default function Browse() {
             <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-ink-600">
               <span className="font-medium text-ink-500 uppercase tracking-wide">Active</span>
               {q && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-paper-100 border border-paper-200 px-2.5 py-1">
-                  <span className="truncate max-w-[14rem]" title={q}>
-                    Search: &ldquo;{q}&rdquo;
+                <>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-paper-100 border border-paper-200 px-2.5 py-1">
+                    <span className="truncate max-w-[14rem]" title={q}>
+                      Search: &ldquo;{q}&rdquo;
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearSearchOnly}
+                      className="text-ink-500 hover:text-ink-900 shrink-0"
+                      aria-label="Clear search"
+                    >
+                      ×
+                    </button>
                   </span>
-                  <button
-                    type="button"
-                    onClick={clearSearchOnly}
-                    className="text-ink-500 hover:text-ink-900 shrink-0"
-                    aria-label="Clear search"
-                  >
-                    ×
-                  </button>
-                </span>
+                  <span className="rounded-full bg-paper-100 border border-paper-200 px-2.5 py-1">
+                    {queryScope === 'set' ? 'Match: set / expansion' : 'Match: card'}
+                  </span>
+                </>
               )}
               {gameLabel && (
                 <span className="rounded-full bg-paper-100 border border-paper-200 px-2.5 py-1">Game: {gameLabel}</span>
+              )}
+              {expansion && (
+                <span className="rounded-full bg-paper-100 border border-paper-200 px-2.5 py-1 max-w-[16rem] truncate" title={expansionLabel || expansion}>
+                  Set: {expansionLabel || expansion}
+                </span>
               )}
               {categoryLabel && (
                 <span className="rounded-full bg-paper-100 border border-paper-200 px-2.5 py-1">
@@ -280,8 +345,19 @@ export default function Browse() {
             <div className="text-center py-16 text-ink-500 space-y-3">
               <p className="font-medium text-ink-700">No listings match your filters.</p>
               <p className="text-sm max-w-md mx-auto">
-                Marketplace search matches <strong>card name, rarity, number, set name/code, variant, game</strong>,
-                plus seller title and description on listings. For full-catalog exploration, use the{' '}
+                {queryScope === 'set' ? (
+                  <>
+                    <strong>Set</strong> mode matches expansion/set <strong>name and code</strong> only. Use the header
+                    search dropdown on <strong>Card</strong> to match card name, number, rarity, and variant. Seller
+                    listing title and description still apply. For full-catalog search, use the{' '}
+                  </>
+                ) : (
+                  <>
+                    <strong>Card</strong> mode matches <strong>card name, rarity, number, and variant</strong> — not set
+                    or game. Use <strong>Set</strong> in the header dropdown to search by expansion. Seller title and
+                    description still apply. For full-catalog search, use the{' '}
+                  </>
+                )}
                 <Link to="/account/library" className="text-mint font-medium hover:underline">
                   Collectibles library
                 </Link>

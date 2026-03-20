@@ -1,10 +1,10 @@
 import { CATEGORIES } from '../data/games';
 
-export default function FilterSidebar({ filters, onFilterChange, games = [] }) {
-  const { game, category, condition, graded, priceMin, priceMax } = filters;
+export default function FilterSidebar({ filters, onFilterChange, games = [], expansions = [], expansionsLoading = false }) {
+  const { game, expansion, category, condition, graded, priceMin, priceMax } = filters;
 
   return (
-    <aside className="w-56 shrink-0 hidden lg:block">
+    <aside className="w-full lg:w-56 shrink-0">
       <div className="sticky top-24 space-y-6">
         <h3 className="font-semibold text-ink-900 text-sm uppercase tracking-wide">Filters</h3>
 
@@ -34,6 +34,27 @@ export default function FilterSidebar({ filters, onFilterChange, games = [] }) {
               <option key={g.id} value={g.slug}>{g.name}</option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-ink-700 mb-2">Set / expansion</label>
+          <select
+            value={expansion}
+            onChange={(e) => onFilterChange('expansion', e.target.value)}
+            disabled={!game || expansionsLoading}
+            className="w-full rounded-lg border border-paper-200 bg-white px-3 py-2 text-sm text-ink-900 focus:ring-2 focus:ring-foil/30 focus:border-foil disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <option value="">{game ? 'All sets in this game' : 'Select a game first'}</option>
+            {expansions.map((ex) => (
+              <option key={ex.id} value={ex.id}>
+                {ex.name}
+                {ex.code ? ` (${ex.code})` : ''}
+              </option>
+            ))}
+          </select>
+          {game && expansionsLoading && (
+            <p className="text-xs text-ink-500 mt-1">Loading sets…</p>
+          )}
         </div>
 
         <div>
