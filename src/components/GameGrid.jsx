@@ -1,13 +1,14 @@
 import { Link } from 'react-router-dom';
+import { publicUrl } from '../lib/publicUrl';
 
 const GAME_ICONS = {
-  pokemon: '/game-icons/pokemon-white.svg',
-  magicthegathering: '/game-icons/mtg.svg',
-  yugioh: '/game-icons/yugioh.svg',
-  onepiece: '/game-icons/onepiece.svg',
-  lorcana: '/game-icons/lorcana.svg',
-  starwarsunlimited: '/game-icons/starwars.svg',
-  riftbound: '/game-icons/riftbound.svg',
+  pokemon: 'game-icons/pokemon-white.svg',
+  magicthegathering: 'game-icons/mtg.svg',
+  yugioh: 'game-icons/yugioh.svg',
+  onepiece: 'game-icons/onepiece.svg',
+  lorcana: 'game-icons/lorcana.svg',
+  starwarsunlimited: 'game-icons/starwars.svg',
+  riftbound: 'game-icons/riftbound.svg',
 };
 
 const GAME_ICON_STYLES = {
@@ -56,11 +57,18 @@ export default function GameGrid({ games = [], loading = false }) {
           className={`relative flex flex-col items-center justify-center overflow-hidden rounded-xl border border-white/30 bg-foil px-4 py-3 text-center transition shadow-[0_2px_0_0_rgba(44,62,80,0.15),8px_10px_22px_-14px_rgba(44,62,80,0.55)] hover:shadow-[0_2px_0_0_rgba(44,62,80,0.2),10px_14px_26px_-14px_rgba(44,62,80,0.65)] sm:flex-row sm:items-center sm:justify-start sm:pl-[4.5rem] sm:text-left ${POD_WIDTH} ${POD_HEIGHT}`}
         >
           <span className="mx-auto mb-2.5 h-12 w-12 shrink-0 rounded-full border border-white/65 bg-white/20 flex items-center justify-center shadow-[0_6px_14px_rgba(0,0,0,0.25)] sm:mb-0 sm:mx-0 sm:absolute sm:left-3 sm:top-1/2 sm:-translate-y-1/2">
-            <img
-              src={GAME_ICONS[game.id]}
-              alt={`${game.name} icon`}
-              className={GAME_ICON_STYLES[game.id] || 'h-7 w-7 object-contain opacity-95 brightness-0 invert'}
-            />
+            {GAME_ICONS[game.id] ? (
+              <img
+                src={publicUrl(GAME_ICONS[game.id])}
+                alt={`${game.name} icon`}
+                className={GAME_ICON_STYLES[game.id] || 'h-7 w-7 object-contain opacity-95 brightness-0 invert'}
+              />
+            ) : (
+              <span
+                className={GAME_ICON_STYLES[game.id] || 'h-7 w-7 block rounded bg-white/20'}
+                aria-hidden
+              />
+            )}
           </span>
           <span className="block min-w-0 sm:pr-2">
             <span className="font-semibold text-sm block text-white line-clamp-2 sm:line-clamp-none">{game.name}</span>

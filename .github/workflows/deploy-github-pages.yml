@@ -1,9 +1,10 @@
 # Official GitHub Pages flow: build static site → upload artifact → deploy-pages.
 # Repo settings → Pages → Source: "GitHub Actions".
 #
-# For https://<user>.github.io/<repo>/  we set BASE_PATH=/<repo>/ so Vite assets resolve.
-# Add repository secrets (Settings → Secrets) for Vite env used at build time:
-#   VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, optional VITE_RGC_BACKEND_URL
+# For https://<user>.github.io/<repo>/  we set BASE_PATH=/<repo>/ so Vite + public/ assets resolve.
+# User site repo named <owner>.github.io → BASE_PATH is / (override with repo variable PAGES_BASE_PATH).
+# Optional: Settings → Variables → PAGES_BASE_PATH (e.g. /my-repo/ or / for apex site).
+# Secrets for build: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, optional VITE_RGC_BACKEND_URL
 
 name: Deploy to GitHub Pages
 
@@ -34,10 +35,22 @@ jobs:
 
       - run: npm ci
 
+      - name: Pages base path
+        id: pages_base
+        shell: bash
+        run: |
+          if [ -n "${{ vars.PAGES_BASE_PATH }}" ]; then
+            echo "path=${{ vars.PAGES_BASE_PATH }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.repository.name }}" = "${{ github.repository_owner }}.github.io" ]; then
+            echo "path=/" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=/${{ github.event.repository.name }}/" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build
         run: npm run build
         env:
-          BASE_PATH: /${{ github.event.repository.name }}/
+          BASE_PATH: ${{ steps.pages_base.outputs.path }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_RGC_BACKEND_URL: ${{ secrets.VITE_RGC_BACKEND_URL }}

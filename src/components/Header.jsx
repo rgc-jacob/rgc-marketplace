@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { publicUrl } from '../lib/publicUrl';
 import { useState } from 'react';
 import { CATEGORIES } from '../data/games';
 import { useGames } from '../hooks/useGames';
@@ -19,7 +20,7 @@ export default function Header() {
         <div className="flex items-center gap-4 h-14 sm:h-16">
           <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="RGC Marketplace">
             <img
-              src="/rgc-logo.png"
+              src={publicUrl('rgc-logo.png')}
               alt="RGC"
               className="h-8 sm:h-9 w-auto rounded-md"
             />
