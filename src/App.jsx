@@ -36,9 +36,12 @@ function OrdersPlaceholder() {
   );
 }
 
+const routerBasename =
+  import.meta.env.BASE_URL === '/' ? undefined : import.meta.env.BASE_URL.replace(/\/$/, '');
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={routerBasename}>
       <Layout>
         <Routes>
           <Route path="/" element={<Home />} />
