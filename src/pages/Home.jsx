@@ -53,7 +53,7 @@ export default function Home() {
     <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       <section className="text-center mb-12">
         <h1 className="text-3xl sm:text-4xl font-bold text-ink-900 mb-2">
-          The collectibles marketplace with collector's in mind
+          The marketplace with collector's in mind
         </h1>
         <p className="text-ink-500 max-w-xl mx-auto">
           Built by collectors, for collectors - discover singles, sealed product, and graded cards with the trust, detail, and clarity serious collectors expect.
