@@ -1,12 +1,24 @@
 import { CATEGORIES } from '../data/games';
 
-export default function FilterSidebar({ filters, onFilterChange, games = [], expansions = [], expansionsLoading = false }) {
+export default function FilterSidebar({
+  filters,
+  onFilterChange,
+  games = [],
+  expansions = [],
+  expansionsLoading = false,
+  embedded = false,
+  showHeading = true,
+}) {
   const { game, expansion, category, condition, graded, priceMin, priceMax } = filters;
 
+  const innerClass = embedded ? 'space-y-6' : 'sticky top-24 space-y-6';
+
   return (
-    <aside className="w-full lg:w-56 shrink-0">
-      <div className="sticky top-24 space-y-6">
-        <h3 className="font-semibold text-ink-900 text-sm uppercase tracking-wide">Filters</h3>
+    <aside className={embedded ? 'w-full' : 'w-full lg:w-56 shrink-0'}>
+      <div className={innerClass}>
+        {showHeading && (
+          <h3 className="font-semibold text-ink-900 text-sm uppercase tracking-wide">Filters</h3>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-ink-700 mb-2">Category</label>
