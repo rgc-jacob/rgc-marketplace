@@ -3,6 +3,7 @@ import { publicUrl } from '../lib/publicUrl';
 import { useEffect, useState } from 'react';
 import { CATEGORIES } from '../data/games';
 import { useGames } from '../hooks/useGames';
+import { isComingSoonLibraryGame } from '../data/comingSoonGames';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../hooks/useCart';
 import NavSearch from './NavSearch';
@@ -105,17 +106,30 @@ export default function Header() {
                 <div
                   onMouseEnter={() => setGamesOpen(true)}
                   onMouseLeave={() => setGamesOpen(false)}
-                  className="absolute left-0 top-full mt-0.5 w-56 py-2 bg-white rounded-lg border border-paper-200 shadow-card"
+                  className="absolute left-0 top-full mt-0.5 min-w-[14rem] w-max max-w-[20rem] py-2 bg-white rounded-lg border border-paper-200 shadow-card"
                 >
-                  {games.map((g) => (
-                    <Link
-                      key={g.id}
-                      to={`/browse?game=${g.slug}`}
-                      className="block px-4 py-2 text-sm text-ink-900 hover:text-foil transition-colors"
-                    >
-                      {g.name}
-                    </Link>
-                  ))}
+                  {games.map((g) =>
+                    isComingSoonLibraryGame(g.id) ? (
+                      <span
+                        key={g.id}
+                        className="flex items-center justify-between gap-3 px-4 py-2 text-sm text-ink-400 cursor-default select-none"
+                        aria-disabled="true"
+                      >
+                        <span className="truncate">{g.name}</span>
+                        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                          Coming soon
+                        </span>
+                      </span>
+                    ) : (
+                      <Link
+                        key={g.id}
+                        to={`/browse?game=${g.slug}`}
+                        className="block px-4 py-2 text-sm text-ink-900 hover:text-foil transition-colors"
+                      >
+                        {g.name}
+                      </Link>
+                    ),
+                  )}
                 </div>
               )}
             </div>
@@ -220,16 +234,29 @@ export default function Header() {
                 </button>
                 {mobileGamesOpen && (
                   <div className="mt-1 flex flex-col gap-0.5 border-l-2 border-foil/30 pl-3 ml-1">
-                    {games.map((g) => (
-                      <Link
-                        key={g.id}
-                        to={`/browse?game=${g.slug}`}
-                        onClick={closeMobileNav}
-                        className="rounded-lg px-2 py-2 text-sm text-ink-800 hover:bg-white hover:text-foil transition-colors"
-                      >
-                        {g.name}
-                      </Link>
-                    ))}
+                    {games.map((g) =>
+                      isComingSoonLibraryGame(g.id) ? (
+                        <span
+                          key={g.id}
+                          className="flex items-center justify-between gap-2 rounded-lg px-2 py-2 text-sm text-ink-400 cursor-default select-none"
+                          aria-disabled="true"
+                        >
+                          <span className="truncate">{g.name}</span>
+                          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-ink-400">
+                            Coming soon
+                          </span>
+                        </span>
+                      ) : (
+                        <Link
+                          key={g.id}
+                          to={`/browse?game=${g.slug}`}
+                          onClick={closeMobileNav}
+                          className="rounded-lg px-2 py-2 text-sm text-ink-800 hover:bg-white hover:text-foil transition-colors"
+                        >
+                          {g.name}
+                        </Link>
+                      ),
+                    )}
                   </div>
                 )}
               </div>

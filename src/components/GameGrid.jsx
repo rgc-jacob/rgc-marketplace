@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { publicUrl } from '../lib/publicUrl';
+import { isComingSoonLibraryGame } from '../data/comingSoonGames';
 
 const GAME_ICONS = {
   pokemon: 'game-icons/pokemon-white.svg',
@@ -48,34 +49,65 @@ export default function GameGrid({ games = [], loading = false }) {
     );
   }
 
+  const activePod =
+    'relative flex flex-col items-center justify-center overflow-hidden rounded-xl border border-white/30 bg-foil px-4 py-3 text-center transition shadow-[0_2px_0_0_rgba(44,62,80,0.15),8px_10px_22px_-14px_rgba(44,62,80,0.55)] hover:shadow-[0_2px_0_0_rgba(44,62,80,0.2),10px_14px_26px_-14px_rgba(44,62,80,0.65)] sm:flex-row sm:items-center sm:justify-start sm:pl-[4.5rem] sm:text-left';
+  const disabledPod =
+    'relative flex flex-col items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-charcoal/40 px-4 py-3 text-center opacity-60 grayscale cursor-not-allowed pointer-events-none sm:flex-row sm:items-center sm:justify-start sm:pl-[4.5rem] sm:text-left';
+
   return (
     <div className="max-w-6xl mx-auto flex flex-wrap items-stretch justify-center gap-3 w-full">
-      {games.map((game) => (
-        <Link
-          key={game.id}
-          to={`/browse?game=${game.slug}`}
-          className={`relative flex flex-col items-center justify-center overflow-hidden rounded-xl border border-white/30 bg-foil px-4 py-3 text-center transition shadow-[0_2px_0_0_rgba(44,62,80,0.15),8px_10px_22px_-14px_rgba(44,62,80,0.55)] hover:shadow-[0_2px_0_0_rgba(44,62,80,0.2),10px_14px_26px_-14px_rgba(44,62,80,0.65)] sm:flex-row sm:items-center sm:justify-start sm:pl-[4.5rem] sm:text-left ${POD_WIDTH} ${POD_HEIGHT}`}
-        >
-          <span className="mx-auto mb-2.5 h-12 w-12 shrink-0 rounded-full border border-white/65 bg-white/20 flex items-center justify-center shadow-[0_6px_14px_rgba(0,0,0,0.25)] sm:mb-0 sm:mx-0 sm:absolute sm:left-3 sm:top-1/2 sm:-translate-y-1/2">
-            {GAME_ICONS[game.id] ? (
-              <img
-                src={publicUrl(GAME_ICONS[game.id])}
-                alt={`${game.name} icon`}
-                className={GAME_ICON_STYLES[game.id] || 'h-7 w-7 object-contain opacity-95 brightness-0 invert'}
-              />
-            ) : (
-              <span
-                className={GAME_ICON_STYLES[game.id] || 'h-7 w-7 block rounded bg-white/20'}
-                aria-hidden
-              />
+      {games.map((game) => {
+        const soon = isComingSoonLibraryGame(game.id);
+        const shellClass = `${soon ? disabledPod : activePod} ${POD_WIDTH} ${POD_HEIGHT}`;
+        const inner = (
+          <>
+            {soon && (
+              <span className="absolute bottom-2 right-2 z-10 rounded-md bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/95 backdrop-blur-[2px]">
+                Coming soon
+              </span>
             )}
-          </span>
-          <span className="block min-w-0 sm:pr-2">
-            <span className="font-semibold text-sm block text-white line-clamp-2 sm:line-clamp-none">{game.name}</span>
-            <span className="text-xs mt-0.5 block text-white/90">Browse</span>
-          </span>
-        </Link>
-      ))}
+            <span className="mx-auto mb-2.5 h-12 w-12 shrink-0 rounded-full border border-white/65 bg-white/20 flex items-center justify-center shadow-[0_6px_14px_rgba(0,0,0,0.25)] sm:mb-0 sm:mx-0 sm:absolute sm:left-3 sm:top-1/2 sm:-translate-y-1/2">
+              {GAME_ICONS[game.id] ? (
+                <img
+                  src={publicUrl(GAME_ICONS[game.id])}
+                  alt={`${game.name} icon`}
+                  className={GAME_ICON_STYLES[game.id] || 'h-7 w-7 object-contain opacity-95 brightness-0 invert'}
+                />
+              ) : (
+                <span
+                  className={GAME_ICON_STYLES[game.id] || 'h-7 w-7 block rounded bg-white/20'}
+                  aria-hidden
+                />
+              )}
+            </span>
+            <span className="block min-w-0 sm:pr-2">
+              <span className="font-semibold text-sm block text-white line-clamp-2 sm:line-clamp-none">{game.name}</span>
+              <span className={`text-xs mt-0.5 block ${soon ? 'text-white/50' : 'text-white/90'}`}>
+                {soon ? 'Not available yet' : 'Browse'}
+              </span>
+            </span>
+          </>
+        );
+
+        if (soon) {
+          return (
+            <div
+              key={game.id}
+              className={shellClass}
+              role="group"
+              aria-label={`${game.name} — coming soon`}
+            >
+              {inner}
+            </div>
+          );
+        }
+
+        return (
+          <Link key={game.id} to={`/browse?game=${game.slug}`} className={shellClass}>
+            {inner}
+          </Link>
+        );
+      })}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { listingPath, LISTING_VIEW } from '../../lib/listingView';
 import { searchCatalogCards, getExpansionsForGame } from '../../api/catalog';
 import { useGames } from '../../hooks/useGames';
+import { isComingSoonLibraryGame } from '../../data/comingSoonGames';
 import { useDebounced } from '../../hooks/useDebounced';
 
 const PAGE_SIZE = 48;
@@ -76,6 +77,16 @@ export default function LibraryPage() {
       </header>
 
       <div className="rounded-xl border border-paper-200 bg-white p-4 sm:p-6 mb-6 space-y-4">
+        {isComingSoonLibraryGame(gameId) && (
+          <div className="rounded-xl border border-amber-200/90 bg-amber-50 px-4 py-3 text-sm text-amber-950 -mt-1">
+            <p className="font-semibold">Collectible library coming soon</p>
+            <p className="mt-1.5 leading-relaxed text-amber-950/95">
+              The full <strong>{games.find((g) => g.slug === gameId || g.id === gameId)?.name ?? 'this game'}</strong>{' '}
+              catalog isn’t available in RGC yet. Searches here may return few or no cards until we ship the
+              library—thanks for your patience.
+            </p>
+          </div>
+        )}
         <div>
           <label htmlFor="lib-q" className="block text-xs font-medium text-ink-500 uppercase tracking-wide mb-1">
             Search catalog

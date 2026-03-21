@@ -7,6 +7,7 @@ import { useDebounced } from '../hooks/useDebounced';
 import { getMarketplaceListings } from '../api/listings';
 import { getExpansionsForGame } from '../api/catalog';
 import { CATEGORIES } from '../data/games';
+import { isComingSoonLibraryGame } from '../data/comingSoonGames';
 
 const SORT_OPTIONS = [
   { value: 'relevance', label: 'Best match' },
@@ -16,6 +17,27 @@ const SORT_OPTIONS = [
 ];
 
 const PAGE_SIZE = 48;
+
+/** Sliding window around current page plus first/last; inserts ellipsis gaps. */
+function browsePaginationItems(currentPage0, totalPages) {
+  if (totalPages <= 1) return [];
+  const current = currentPage0 + 1;
+  const delta = 2;
+  const range = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || (i >= current - delta && i <= current + delta)) {
+      range.push(i);
+    }
+  }
+  const out = [];
+  let prev = 0;
+  for (const i of range) {
+    if (prev && i - prev > 1) out.push('ellipsis');
+    out.push(i);
+    prev = i;
+  }
+  return out;
+}
 
 function numOrEmpty(raw) {
   if (raw == null || raw === '') return '';
@@ -117,7 +139,9 @@ export default function Browse() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [mayHaveMore, setMayHaveMore] = useState(false);
+  const [serverTotalCount, setServerTotalCount] = useState(null);
   const [listError, setListError] = useState(null);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const searchKey = searchParams.toString();
 
@@ -146,6 +170,7 @@ export default function Browse() {
           setListError(res.ok ? null : res.error);
           setListings(res.listings || []);
           setMayHaveMore(res.mayHaveMore);
+          setServerTotalCount(res.ok ? res.totalCount : null);
         }
       })
       .finally(() => {
@@ -205,7 +230,17 @@ export default function Browse() {
     Boolean(game || expansion || category || graded || priceMin !== '' || priceMax !== '');
   const hasSidebarFiltersActive = hasUrlFilters || Boolean(condition);
 
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const totalPages =
+    serverTotalCount != null && serverTotalCount > 0
+      ? Math.max(1, Math.ceil(serverTotalCount / PAGE_SIZE))
+      : null;
+  const rangeStart = listings.length === 0 ? 0 : page * PAGE_SIZE + 1;
+  const rangeEnd = page * PAGE_SIZE + listings.length;
+  const paginationItems = useMemo(
+    () => (totalPages != null ? browsePaginationItems(page, totalPages) : []),
+    [page, totalPages],
+  );
+  const clientFilteredOnPage = listings.length > 0 && filtered.length !== listings.length;
 
   useEffect(() => {
     if (!mobileFiltersOpen) return;
@@ -290,6 +325,17 @@ export default function Browse() {
             </p>
           )}
 
+          {isComingSoonLibraryGame(game) && (
+            <div className="mb-4 rounded-xl border border-amber-200/90 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-sm">
+              <p className="font-semibold text-amber-950">Collectible library coming soon</p>
+              <p className="mt-1.5 leading-relaxed text-amber-950/95">
+                The full <strong>{gameLabel || 'this game'}</strong> catalog isn’t loaded in RGC yet. You’ll mostly see
+                empty results unless another member lists a card for sale—marketplace inventory for this title is
+                seller-driven until the library launches.
+              </p>
+            </div>
+          )}
+
           {(q || hasUrlFilters) && (
             <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-ink-600">
               <span className="font-medium text-ink-500 uppercase tracking-wide">Active</span>
@@ -339,53 +385,87 @@ export default function Browse() {
             </div>
           )}
 
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <p
-                className={
-                  loading
-                    ? 'text-sm inline-flex items-center rounded-lg bg-charcoal px-3 py-1.5 font-medium text-white'
-                    : 'text-sm text-ink-500'
-                }
-              >
-                {loading ? 'Loading…' : `${filtered.length} ${filtered.length === 1 ? 'listing' : 'listings'}`}
-                {!loading && q && (
-                  <>
-                    {' '}
-                    for &ldquo;{q}&rdquo;
-                  </>
-                )}
-                {!loading && page > 0 && <span className="text-ink-400"> · Page {page + 1}</span>}
-              </p>
-              {!loading && q && (
-                <button
-                  type="button"
-                  onClick={clearSearchOnly}
-                  className="text-sm font-medium text-mint hover:underline"
-                >
-                  Clear search
-                </button>
-              )}
-              {!loading && (page > 0 || mayHaveMore) && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={page === 0}
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                    className="text-sm font-medium text-mint disabled:text-ink-300 disabled:cursor-not-allowed hover:underline"
-                  >
-                    Previous
-                  </button>
-                  <span className="text-ink-300 text-sm">|</span>
-                  <button
-                    type="button"
-                    disabled={!mayHaveMore}
-                    onClick={() => setPage((p) => p + 1)}
-                    className="text-sm font-medium text-mint disabled:text-ink-300 disabled:cursor-not-allowed hover:underline"
-                  >
-                    Next
-                  </button>
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+            <div className="min-w-0 flex-1 space-y-3">
+              {loading ? (
+                <p className="text-sm inline-flex w-fit items-center rounded-lg bg-charcoal px-3 py-1.5 font-medium text-white">
+                  Loading…
+                </p>
+              ) : listError ? null : serverTotalCount != null && serverTotalCount > 0 && totalPages != null ? (
+                <div className="rounded-xl border border-paper-200 bg-gradient-to-b from-white to-paper-50/90 px-4 py-3 shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-500">
+                    Results (search &amp; sidebar filters)
+                  </p>
+                  <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+                    <div>
+                      <p className="text-xs text-ink-500">Total listings</p>
+                      <p className="mt-0.5 flex flex-wrap items-baseline gap-2">
+                        <span className="text-3xl font-bold tabular-nums tracking-tight text-ink-900">
+                          {serverTotalCount.toLocaleString()}
+                        </span>
+                        <span className="text-sm font-medium text-ink-700">
+                          {serverTotalCount === 1 ? 'listing' : 'listings'}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="sm:text-right">
+                      <p className="text-xs text-ink-500">Pagination</p>
+                      <p className="mt-0.5 text-2xl font-bold tabular-nums text-ink-900">
+                        Page {page + 1}{' '}
+                        <span className="text-base font-semibold text-ink-400">of</span> {totalPages}
+                      </p>
+                      <p className="mt-1 text-sm text-ink-600">
+                        Rows{' '}
+                        <span className="font-medium text-ink-800 tabular-nums">
+                          {rangeStart}–{rangeEnd}
+                        </span>{' '}
+                        on this page
+                        {clientFilteredOnPage && (
+                          <>
+                            <span className="hidden sm:inline"> · </span>
+                            <span className="mt-1 block text-amber-800/90 sm:mt-0 sm:inline">
+                              {filtered.length} visible after category / condition
+                            </span>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
                 </div>
+              ) : !listError && serverTotalCount === 0 ? (
+                <p className="text-sm text-ink-600">
+                  <span className="font-semibold text-ink-900 tabular-nums">0</span> listings match your search and
+                  filters.
+                </p>
+              ) : (
+                !listError && (
+                  <div className="text-sm text-ink-600 space-y-1">
+                    <p>
+                      <span className="font-semibold tabular-nums text-ink-900">{filtered.length}</span>{' '}
+                      {filtered.length === 1 ? 'listing' : 'listings'} on this page
+                      {listings.length > 0 && filtered.length !== listings.length && (
+                        <span className="text-ink-500">
+                          {' '}
+                          ({listings.length} before category / condition filters)
+                        </span>
+                      )}
+                    </p>
+                    {(page > 0 || mayHaveMore) && (
+                      <p className="text-xs text-ink-500">
+                        Page {page + 1}
+                        {mayHaveMore ? ' · more results may be available (next page)' : ''}
+                      </p>
+                    )}
+                  </div>
+                )
+              )}
+              {!loading && q && (
+                <p className="text-sm text-ink-600">
+                  Active search: <span className="font-medium text-ink-800">&ldquo;{q}&rdquo;</span>{' '}
+                  <button type="button" onClick={clearSearchOnly} className="font-medium text-mint hover:underline">
+                    Clear
+                  </button>
+                </p>
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -472,6 +552,112 @@ export default function Browse() {
               ))}
             </div>
           )}
+
+          {!loading &&
+            !listError &&
+            serverTotalCount !== 0 &&
+            (totalPages != null ? totalPages > 1 : page > 0 || mayHaveMore) && (
+              <nav
+                className="mt-8 flex flex-col items-center gap-4 border-t border-paper-200 pt-6"
+                aria-label="Browse listings pages"
+              >
+                {totalPages != null && totalPages > 1 && serverTotalCount != null && (
+                  <p className="text-center text-sm text-ink-600">
+                    <span className="font-semibold text-ink-900">
+                      Page {page + 1} of {totalPages}
+                    </span>
+                    <span className="text-ink-400"> · </span>
+                    <span className="tabular-nums font-medium text-ink-800">
+                      {serverTotalCount.toLocaleString()}
+                    </span>{' '}
+                    listings in this filtered set
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
+                {totalPages != null ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setPage(0)}
+                      disabled={page === 0}
+                      className="rounded-lg border border-paper-200 bg-white px-2.5 py-1.5 text-sm font-medium text-ink-800 hover:bg-paper-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      First
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      disabled={page === 0}
+                      className="rounded-lg border border-paper-200 bg-white px-2.5 py-1.5 text-sm font-medium text-ink-800 hover:bg-paper-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    {paginationItems.map((item, idx) =>
+                      item === 'ellipsis' ? (
+                        <span
+                          key={`e-${idx}`}
+                          className="flex h-9 min-w-[2.25rem] items-center justify-center text-ink-400 select-none"
+                          aria-hidden
+                        >
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => setPage(item - 1)}
+                          aria-current={page === item - 1 ? 'page' : undefined}
+                          className={
+                            page === item - 1
+                              ? 'min-w-[2.25rem] rounded-lg bg-charcoal px-2.5 py-1.5 text-sm font-semibold text-white'
+                              : 'min-w-[2.25rem] rounded-lg border border-paper-200 bg-white px-2.5 py-1.5 text-sm font-medium text-ink-800 hover:bg-paper-50'
+                          }
+                        >
+                          {item}
+                        </button>
+                      ),
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => p + 1)}
+                      disabled={page >= totalPages - 1}
+                      className="rounded-lg border border-paper-200 bg-white px-2.5 py-1.5 text-sm font-medium text-ink-800 hover:bg-paper-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPage(totalPages - 1)}
+                      disabled={page >= totalPages - 1}
+                      className="rounded-lg border border-paper-200 bg-white px-2.5 py-1.5 text-sm font-medium text-ink-800 hover:bg-paper-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Last
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      disabled={page === 0}
+                      className="rounded-lg border border-paper-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-800 hover:bg-paper-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <span className="px-2 text-sm text-ink-500 tabular-nums">Page {page + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => p + 1)}
+                      disabled={!mayHaveMore}
+                      className="rounded-lg border border-paper-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-800 hover:bg-paper-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </>
+                )}
+                </div>
+              </nav>
+            )}
         </div>
       </div>
     </main>

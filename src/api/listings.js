@@ -39,7 +39,7 @@ function mapBrowseRow(row, gameDisplayNames = {}) {
 
 /**
  * Browse + home feed: seller listings first, then reference prices (deduped per card/variant).
- * @returns {Promise<{ ok: boolean, listings: Array, pageRowCount: number, mayHaveMore: boolean, error: string|null }>}
+ * @returns {Promise<{ ok: boolean, listings: Array, pageRowCount: number, totalCount: number|null, mayHaveMore: boolean, error: string|null }>}
  */
 export async function getBrowseListings(params = {}) {
   const {
@@ -78,6 +78,7 @@ export async function getBrowseListings(params = {}) {
       ok: false,
       listings: [],
       pageRowCount: 0,
+      totalCount: null,
       mayHaveMore: false,
       error: error.message,
     };
@@ -85,11 +86,24 @@ export async function getBrowseListings(params = {}) {
 
   const rows = data || [];
   const listings = rows.map((r) => mapBrowseRow(r, gameDisplayNames));
+  let totalCount = null;
+  if (rows.length > 0 && rows[0].total_count != null) {
+    totalCount = Number(rows[0].total_count);
+  } else if (rows.length === 0) {
+    totalCount = 0;
+  }
+  const pageOffset = Math.max(0, offset);
+  const mayHaveMore =
+    totalCount != null && Number.isFinite(totalCount)
+      ? pageOffset + listings.length < totalCount
+      : rows.length === pageLimit;
+
   return {
     ok: true,
     listings,
     pageRowCount: rows.length,
-    mayHaveMore: rows.length === pageLimit,
+    totalCount,
+    mayHaveMore,
     error: null,
   };
 }
