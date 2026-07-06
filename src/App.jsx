@@ -7,6 +7,7 @@ import ListingDetail from './pages/ListingDetail';
 import Sell from './pages/Sell';
 import AccountHub from './pages/account/AccountHub';
 import Cart from './pages/Cart';
+import Watchlist from './pages/Watchlist';
 
 function Layout({ children }) {
   return (
@@ -15,15 +16,6 @@ function Layout({ children }) {
       <div className="flex-1">{children}</div>
       <Footer />
     </div>
-  );
-}
-
-function WatchlistPlaceholder() {
-  return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-12 text-center">
-      <h1 className="text-2xl font-bold text-ink-900 mb-2">Watchlist</h1>
-      <p className="text-ink-500">Save listings to track price and availability. (Coming soon.)</p>
-    </main>
   );
 }
 
@@ -50,7 +42,7 @@ export default function App() {
           <Route path="/sell" element={<Sell />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/account/*" element={<AccountHub />} />
-          <Route path="/watchlist" element={<WatchlistPlaceholder />} />
+          <Route path="/watchlist" element={<Watchlist />} />
           <Route path="/orders" element={<OrdersPlaceholder />} />
         </Routes>
       </Layout>

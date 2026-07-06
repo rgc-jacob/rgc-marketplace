@@ -7,6 +7,7 @@ import { isComingSoonLibraryGame } from '../data/comingSoonGames';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../hooks/useCart';
 import NavSearch from './NavSearch';
+import NotificationBell from './NotificationBell';
 
 export default function Header() {
   const location = useLocation();
@@ -181,6 +182,7 @@ export default function Header() {
                 </span>
               )}
             </Link>
+            <NotificationBell />
             <Link
               to={user ? '/account/collection' : '/account'}
               className="p-2 text-ink-900 hover:text-foil rounded-lg"
@@ -320,6 +322,12 @@ export default function Header() {
                   </span>
                 )}
               </Link>
+              {user && (
+                <div className="flex items-center gap-3 rounded-lg py-1 px-1 -mx-1 text-sm font-semibold text-ink-900">
+                  <NotificationBell />
+                  <span>Notifications</span>
+                </div>
+              )}
               <Link
                 to={user ? '/account/collection' : '/account'}
                 onClick={closeMobileNav}
