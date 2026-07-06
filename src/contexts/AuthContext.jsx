@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { mergeLocalFavoritesIntoWatchlist } from '../api/watchlist';
 
 const AuthContext = createContext(null);
 
@@ -14,8 +15,13 @@ export function AuthProvider({ children }) {
     });
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, s) => {
+    } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      if (event === 'SIGNED_IN') {
+        // Fold any device-local favorites into the server watchlist now that we have a
+        // user id; safe to call every sign-in (upsert is idempotent).
+        mergeLocalFavoritesIntoWatchlist();
+      }
     });
     return () => subscription.unsubscribe();
   }, []);

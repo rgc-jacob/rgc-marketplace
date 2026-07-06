@@ -449,6 +449,115 @@ export async function getMySellerListings() {
 }
 
 /**
+ * Batched listing-card summaries for a page of listing keys (watchlist, "recently
+ * viewed", etc.) -- one query per shape (seller uuid / reference composite) instead of
+ * N calls to getListingById.
+ * @param {string[]} listingKeys
+ * @param {Record<string,string>} [gameDisplayNames]
+ * @returns {Promise<Array>} listing-card-shaped rows, resolvable entries only (silently
+ *   drops keys that no longer resolve -- e.g. a watched seller listing that was cancelled)
+ */
+export async function getListingSummariesByKeys(listingKeys, gameDisplayNames = {}) {
+  const keys = [...new Set((listingKeys || []).filter(Boolean))];
+  if (keys.length === 0) return [];
+
+  const sellerIds = keys.filter((k) => isSellerListingId(k));
+  const refKeys = keys.filter((k) => !isSellerListingId(k));
+
+  const out = [];
+
+  if (sellerIds.length > 0) {
+    const { data, error } = await supabase
+      .from('marketplace_listings')
+      .select(
+        `
+        id,
+        card_id,
+        variant_name,
+        title_override,
+        condition_label,
+        price_usd,
+        status,
+        card:cards_v2 (
+          id, name, game_id, rarity, image_small, image_medium,
+          expansions ( code )
+        )
+      `
+      )
+      .in('id', sellerIds)
+      .eq('status', 'active');
+
+    if (error) {
+      console.error('getListingSummariesByKeys (seller)', error);
+    } else {
+      for (const row of data || []) {
+        const card = row.card;
+        const expansion = Array.isArray(card?.expansions) ? card.expansions[0] : card?.expansions;
+        out.push({
+          id: row.id,
+          source: 'seller',
+          title: row.title_override || card?.name || '',
+          price: row.price_usd != null ? Number(row.price_usd) : 0,
+          condition: row.condition_label || 'Near Mint',
+          game: gameDisplayNames[card?.game_id] || card?.game_id || '',
+          setCode: expansion?.code ?? null,
+          rarity: card?.rarity ?? null,
+          graded: false,
+          grade: null,
+          image: card?.image_medium || card?.image_small || '',
+        });
+      }
+    }
+  }
+
+  if (refKeys.length > 0) {
+    const parsed = refKeys.map((k) => {
+      const parts = k.split('|');
+      return { key: k, cardId: parts[0], variantName: parts[1] || 'normal' };
+    });
+    const cardIds = [...new Set(parsed.map((p) => p.cardId).filter(Boolean))];
+
+    const [cardsRes, pricesRes] = await Promise.all([
+      supabase
+        .from('cards_v2')
+        .select('id, game_id, rarity, image_small, image_medium, expansions ( code )')
+        .in('id', cardIds),
+      supabase.from('card_prices_current').select('card_id, variant_name, raw_nm').in('card_id', cardIds),
+    ]);
+
+    if (cardsRes.error) console.error('getListingSummariesByKeys (cards)', cardsRes.error);
+    if (pricesRes.error) console.error('getListingSummariesByKeys (prices)', pricesRes.error);
+
+    const cardsById = new Map((cardsRes.data || []).map((c) => [c.id, c]));
+    const priceByKey = new Map(
+      (pricesRes.data || []).map((p) => [`${p.card_id}|${p.variant_name || 'normal'}`, p])
+    );
+
+    for (const { key, cardId, variantName } of parsed) {
+      const card = cardsById.get(cardId);
+      if (!card) continue;
+      const price = priceByKey.get(`${cardId}|${variantName}`);
+      const expansion = Array.isArray(card.expansions) ? card.expansions[0] : card.expansions;
+      out.push({
+        id: key,
+        source: 'reference',
+        title: card.name,
+        price: price?.raw_nm != null ? Number(price.raw_nm) : 0,
+        condition: 'Near Mint',
+        game: gameDisplayNames[card.game_id] || card.game_id || '',
+        setCode: expansion?.code ?? null,
+        rarity: card.rarity ?? null,
+        graded: false,
+        grade: null,
+        image: card.image_medium || card.image_small || '',
+      });
+    }
+  }
+
+  return out;
+}
+
+/**
  * @returns {Promise<{ gainers: Array, losers: Array }>}
  */
 export async function getTopMovers(limit = 5) {

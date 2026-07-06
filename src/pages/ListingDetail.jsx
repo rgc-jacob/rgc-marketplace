@@ -4,7 +4,7 @@ import { getListingById, isSellerListingId } from '../api/listings';
 import { addToCart } from '../lib/cart';
 import { useGames, gamesToDisplayNames } from '../hooks/useGames';
 import { getListingViewFromSearch, LISTING_VIEW, listingPath } from '../lib/listingView';
-import { isFavoriteListingId, toggleFavoriteListingId } from '../lib/favorites';
+import { useWatchlist } from '../hooks/useWatchlist';
 import { addCardToUserCollection } from '../api/userCardActions';
 
 const DEFAULT_LISTING_OPTIONS = {
@@ -36,6 +36,7 @@ export default function ListingDetail() {
   const { cardId, variantName } = parseListingCompositeId(decodedId);
 
   const { games } = useGames();
+  const { isFavorite, toggle: toggleWatchlist } = useWatchlist();
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -50,8 +51,8 @@ export default function ListingDetail() {
   const [cartMsg, setCartMsg] = useState('');
 
   useEffect(() => {
-    setFavorited(isFavoriteListingId(decodedId));
-  }, [decodedId]);
+    setFavorited(isFavorite(decodedId));
+  }, [decodedId, isFavorite]);
 
   useEffect(() => {
     if (!decodedId) {
@@ -85,10 +86,10 @@ export default function ListingDetail() {
     return () => { cancelled = true; };
   }, [decodedId, games]);
 
-  const toggleFavorite = useCallback(() => {
-    const next = toggleFavoriteListingId(decodedId);
+  const toggleFavorite = useCallback(async () => {
+    const next = await toggleWatchlist(decodedId);
     setFavorited(next);
-  }, [decodedId]);
+  }, [decodedId, toggleWatchlist]);
 
   const goSearchMarketplace = useCallback(() => {
     if (!listing) return;
