@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { listingPath, LISTING_VIEW } from '../lib/listingView';
 import { createSellerListing } from '../api/listings';
+import { CONDITIONS } from '../data/games';
 
 function parseCardRef(ref) {
   if (!ref) return null;
@@ -13,14 +14,6 @@ function parseCardRef(ref) {
     variantName: decoded.slice(i + 1) || 'normal',
   };
 }
-
-const CONDITIONS = [
-  'Near Mint',
-  'Lightly Played',
-  'Moderately Played',
-  'Heavily Played',
-  'Damaged',
-];
 
 /**
  * Publish a seller listing to Supabase `marketplace_listings`.

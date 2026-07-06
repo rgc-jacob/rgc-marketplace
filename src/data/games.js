@@ -7,3 +7,12 @@ export const CATEGORIES = [
   { id: 'complete-sets', name: 'Complete Sets', slug: 'complete-sets', description: 'Full sets' },
   { id: 'accessories', name: 'Supplies & Accessories', slug: 'accessories', description: 'Sleeves, binders, playmats' },
 ];
+
+// Seller listing condition labels (matches marketplace_listings.condition_label, free text).
+export const CONDITIONS = [
+  'Near Mint',
+  'Lightly Played',
+  'Moderately Played',
+  'Heavily Played',
+  'Damaged',
+];

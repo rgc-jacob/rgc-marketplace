@@ -430,13 +430,15 @@ export async function getMySellerListings() {
       card_id,
       variant_name,
       title_override,
+      description,
+      condition_label,
       price_usd,
       quantity,
       status,
       buy_it_now,
       best_offer,
       created_at,
-      card:cards_v2 ( name, game_id, image_medium, image_small )
+      card:cards_v2 ( name, game_id, image_medium, image_small, expansions ( name, code ) )
     `
     )
     .eq('seller_id', user.id)
